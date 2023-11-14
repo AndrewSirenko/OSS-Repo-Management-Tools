@@ -1,0 +1,116 @@
+#!/bin/bash
+
+# TODO turn these into github actions
+
+# TODO confirm this file is chmod u+x or write in setup or have a setup repo script
+
+# TODO Should I make this an interactive script that you can say where in changelog each PR goes and rewrite descript?
+
+# TODO make this env var that if missing script errors OR replace with CLI gh auth, set at repo-level
+github_pat=""
+
+# TODO replace with env vars
+repo_owner=""
+repository_directory=""
+repository_url=""
+specific_tag=""  # Replace this with the tag name you want to use
+
+git clone "$repository_url" # TODO make tmp file possibly shallow clone or only check commit history
+cd "$repository_directory"
+
+# Fetch the specific tag from the remote repository
+git pull
+git fetch origin "refs/tags/$specific_tag:refs/tags/$specific_tag"
+
+# Get the commits since the specific tag
+commits=$(git log --oneline "$specific_tag"..HEAD)
+
+# Function to extract pull request numbers from commit messages using grep
+get_pull_request_numbers() {
+    echo "$1" | grep -o "\#\d\+" | grep -o "\d\+"
+}
+
+# TODO optionally replace with GH CLI
+# Function to check if a pull request is closed and merged using GitHub API and curl
+is_pull_request_closed_and_merged() {
+    pr_number=$1
+    gh api \
+      -H "Accept: application/vnd.github+json" \
+      -H "X-GitHub-Api-Version: 2022-11-28" \
+      /repos/${repo_owner}/$repository_directory/pulls/$pr_number/merge
+}
+
+# Function to get the commit messages for a merged pull request
+get_pull_request_commits() {
+    pr_number=$1
+    api_url="${github_repo_url}/pulls/${pr_number}/commits"
+    commits=$(gh api \
+                 -H "Accept: application/vnd.github+json" \
+                 -H "X-GitHub-Api-Version: 2022-11-28" \
+                 "/repos/${repo_owner}/$repository_directory/pulls/${pr_number}/commits" | jq -r '.[].commit.message')
+
+    echo "$commits"
+}
+
+# TODO refactor these two get_pull_request into one API call because this is wasteful
+# Function to get the GitHub user responsible for a pull request using GitHub API
+get_pull_request_user() {
+    pr_number=$1
+    user=$(gh api \
+                 -H "Accept: application/vnd.github+json" \
+                 -H "X-GitHub-Api-Version: 2022-11-28" \
+                 "/repos/${repo_owner}/$repository_directory/pulls/${pr_number}" | jq -r '.user.login')
+    echo "$user"
+}
+
+# Function to get the GitHub pull request title using GitHub API
+get_pull_request_title() {
+    pr_number=$1
+    title=$(gh api \
+                 -H "Accept: application/vnd.github+json" \
+                 -H "X-GitHub-Api-Version: 2022-11-28" \
+                 "/repos/${repo_owner}/$repository_directory/pulls/${pr_number}" | jq -r '.title')
+    echo "$title"
+}
+
+# Function to get the GitHub user's profile URL using GitHub API
+get_user_profile_url() {
+    user=$1
+    api_url="https://api.github.com/users/${user}"
+    profile_url=$(curl -s -H "Authorization: token $github_pat" "$api_url" | jq -r '.html_url')
+    echo "$profile_url"
+}
+
+# GitHub repository URL
+github_repo_url="$repository_url"  # Replace this with your GitHub repository URL
+
+# Iterate through the commits and print information about closed and merged pull requests
+CUR_BULLET=1
+while IFS= read -r commit; do
+    commit_message=$(echo "$commit" | cut -d' ' -f2-)
+    pull_request_numbers=$(get_pull_request_numbers "$commit_message")
+    has_merged_pull_requests=false
+
+    # Check each pull request and print information about merged ones
+    for pr_number in $pull_request_numbers; do
+        if is_pull_request_closed_and_merged "$pr_number"; then
+            user=$(get_pull_request_user "$pr_number")
+            if [[ -n "$user" ]]; then
+                user_profile_url=$(get_user_profile_url "$user")
+                pr_title=$(get_pull_request_title "$pr_number")
+                echo "* $CUR_BULLET $pr_title ([#${pr_number}]($github_repo_url/pull/${pr_number}), [@${user}](${user_profile_url}))"
+                    echo "  Associated commit messages:"
+                      pull_request_commits=$(get_pull_request_commits "$pr_number")
+                      # This pipe chain deletes any commit messages that are blank, repeats, or contain "Signed-off"
+                      echo "$pull_request_commits" | uniq | sed -e '/Signed-off.*/d' -e '/^$/d' -e 's/^/    - /'
+                has_merged_pull_requests=true
+                ((CUR_BULLET++))
+            fi
+        fi
+    done
+
+    # Print an empty line between commits with merged pull requests
+    if $has_merged_pull_requests; then
+        echo
+    fi
+done <<< "$commits"

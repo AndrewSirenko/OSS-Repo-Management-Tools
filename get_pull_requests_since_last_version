@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -euo pipefail
-
 github_repo_url="$1" # Replace this with repo url
 specific_tag="$2"  # Replace this with the tag name you want to use
 
@@ -65,6 +63,7 @@ get_repo_and_owner "$github_repo_url"
 
 export repo_owner repository_directory
 
+rm -rf "$repository_directory"
 git clone "$github_repo_url"
 cd "$repository_directory"
 
@@ -73,11 +72,12 @@ git pull
 git fetch origin "refs/tags/$specific_tag:refs/tags/$specific_tag"
 
 # Get commits since the specific tag
-commits=$(git log --oneline "$specific_tag"..HEAD)
+git log --oneline "$specific_tag"..HEAD > commits.tmp
+echo "" > clean.tmp
 
 # Iterate through the commits and print information about closed and merged pull requests
 CUR_BULLET=1
-while IFS= read -r commit; do
+while IFS="" read -r commit; do
     commit_message=$(echo "$commit" | cut -d' ' -f2-)
     pull_request_numbers=$(get_pull_request_numbers "$commit_message")
     has_merged_pull_requests=false
@@ -90,6 +90,7 @@ while IFS= read -r commit; do
                 user_profile_url="https://github.com/$user"
                 pr_title=$(get_pull_request_title "$pr_number")
                 echo "* $CUR_BULLET $pr_title ([#${pr_number}]($github_repo_url/pull/${pr_number}), [@${user}](${user_profile_url}))"
+                echo "* $pr_title ([#${pr_number}]($github_repo_url/pull/${pr_number}), [@${user}](${user_profile_url}))" >> clean.tmp
                     echo "  Associated commit messages:"
                       pull_request_commits=$(get_pull_request_commits "$pr_number")
                       # This pipe chain deletes any commit messages that are blank, repeats, or contain "Signed-off"
@@ -104,4 +105,6 @@ while IFS= read -r commit; do
     if $has_merged_pull_requests; then
         echo
     fi
-done <<< "$commits"
+done <<< "$(cat commits.tmp)"
+
+cat clean.tmp

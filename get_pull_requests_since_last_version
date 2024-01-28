@@ -5,7 +5,7 @@ repository_directory=""
 repository_url="" # Replace this with repo url
 specific_tag=""  # Replace this with the tag name you want to use
 
-git clone "$repository_url" # TODO make tmp file possibly shallow clone or only check commit history
+git clone "$repository_url" --bare
 cd "$repository_directory"
 
 # Fetch the specific tag from the remote repository

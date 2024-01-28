@@ -1,18 +1,8 @@
 #!/bin/bash
-
-# TODO turn these into github actions
-
-# TODO confirm this file is chmod u+x or write in setup or have a setup repo script
-
-# TODO Should I make this an interactive script that you can say where in changelog each PR goes and rewrite descript?
-
-# TODO make this env var that if missing script errors OR replace with CLI gh auth, set at repo-level
-github_pat=""
-
 # TODO replace with env vars
 repo_owner=""
 repository_directory=""
-repository_url=""
+repository_url="" # Replace this with repo url
 specific_tag=""  # Replace this with the tag name you want to use
 
 git clone "$repository_url" # TODO make tmp file possibly shallow clone or only check commit history

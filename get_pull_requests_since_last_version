@@ -1,9 +1,9 @@
 #!/bin/bash
 # TODO replace with env vars
-repo_owner=""
-repository_directory=""
 repository_url="" # Replace this with repo url
 specific_tag=""  # Replace this with the tag name you want to use
+
+export repo_owner repository_directory
 
 git clone "$repository_url" --bare
 cd "$repository_directory"
@@ -14,6 +14,20 @@ git fetch origin "refs/tags/$specific_tag:refs/tags/$specific_tag"
 
 # Get the commits since the specific tag
 commits=$(git log --oneline "$specific_tag"..HEAD)
+
+# Function to extract owner and repo from a GitHub URL
+get_repo_and_owner() {
+    # Remove trailing slash and split URL
+    IFS='/' read -ra components <<< "$(echo $1 | sed 's|/$||')"
+
+    # Check if there are at least two components (owner and repo)
+    if [ ${#components[@]} -ge 2 ]; then
+        repo_owner="${components[3]}"
+        repository_directory="${components[4]}"
+    else
+        echo "Invalid GitHub URL"
+    fi
+}
 
 # Function to extract pull request numbers from commit messages using grep
 get_pull_request_numbers() {
@@ -73,6 +87,9 @@ get_user_profile_url() {
 
 # GitHub repository URL
 github_repo_url="$repository_url"  # Replace this with your GitHub repository URL
+
+# Get repo owner and name
+get_repo_and_owner "$repository_url"
 
 # Iterate through the commits and print information about closed and merged pull requests
 CUR_BULLET=1

@@ -32,7 +32,6 @@ is_pull_request_closed_and_merged() {
 # Function to get the commit messages for a merged pull request
 get_pull_request_commits() {
     pr_number=$1
-    api_url="${github_repo_url}/pulls/${pr_number}/commits"
     commits=$(gh api \
                  -H "Accept: application/vnd.github+json" \
                  -H "X-GitHub-Api-Version: 2022-11-28" \
@@ -60,14 +59,6 @@ get_pull_request_title() {
                  -H "X-GitHub-Api-Version: 2022-11-28" \
                  "/repos/${repo_owner}/$repository_directory/pulls/${pr_number}" | jq -r '.title')
     echo "$title"
-}
-
-# Function to get the GitHub user's profile URL using GitHub API
-get_user_profile_url() {
-    user=$1
-    api_url="https://api.github.com/users/${user}"
-    profile_url=$(curl -s -H "Authorization: token $github_pat" "$api_url" | jq -r '.html_url')
-    echo "$profile_url"
 }
 
 get_repo_and_owner "$repository_url"
@@ -100,7 +91,7 @@ while IFS= read -r commit; do
         if is_pull_request_closed_and_merged "$pr_number"; then
             user=$(get_pull_request_user "$pr_number")
             if [[ -n "$user" ]]; then
-                user_profile_url=$(get_user_profile_url "$user")
+                user_profile_url="https://github.com/$user"
                 pr_title=$(get_pull_request_title "$pr_number")
                 echo "* $CUR_BULLET $pr_title ([#${pr_number}]($github_repo_url/pull/${pr_number}), [@${user}](${user_profile_url}))"
                     echo "  Associated commit messages:"

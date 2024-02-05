@@ -2,25 +2,25 @@
 
 set -euo pipefail
 
-repository_url="$1" # Replace this with repo url
+github_repo_url="$1" # Replace this with repo url
 specific_tag="$2"  # Replace this with the tag name you want to use
 
-# Function to extract owner and repo from a GitHub URL
+# Extract owner and repo from a GitHub URL
 get_repo_and_owner() {
     # Extract repository owner and name from GitHub URL
-    repo_owner=$(echo "$repository_url" | awk -F'/' '{print $4}')
-    repository_directory=$(echo "$repository_url" | awk -F'/' '{print $5}')
+    repo_owner=$(echo "$github_repo_url" | awk -F'/' '{print $4}')
+    repository_directory=$(echo "$github_repo_url" | awk -F'/' '{print $5}')
 
     echo "Repo owner: $repo_owner; Repo name: $repository_directory"
 }
 
-# Function to extract pull request numbers from commit messages using grep
+# Extract pull request numbers from commit messages
 get_pull_request_numbers() {
     echo "$1" | grep -o "\#\d\+" | grep -o "\d\+"
 }
 
 # TODO optionally replace with GH CLI
-# Function to check if a pull request is closed and merged using GitHub API and curl
+# Check if a pull request is closed and merged
 is_pull_request_closed_and_merged() {
     pr_number=$1
     gh api \
@@ -29,7 +29,7 @@ is_pull_request_closed_and_merged() {
       /repos/${repo_owner}/$repository_directory/pulls/$pr_number/merge
 }
 
-# Function to get the commit messages for a merged pull request
+# Get commit messages for a merged pull request
 get_pull_request_commits() {
     pr_number=$1
     commits=$(gh api \
@@ -61,23 +61,19 @@ get_pull_request_title() {
     echo "$title"
 }
 
-get_repo_and_owner "$repository_url"
+get_repo_and_owner "$github_repo_url"
 
 export repo_owner repository_directory
 
-git clone "$repository_url"
+git clone "$github_repo_url"
 cd "$repository_directory"
 
-# Fetch the specific tag from the remote repository
+# Fetch specific tag from remote repository
 git pull
 git fetch origin "refs/tags/$specific_tag:refs/tags/$specific_tag"
 
-# Get the commits since the specific tag
+# Get commits since the specific tag
 commits=$(git log --oneline "$specific_tag"..HEAD)
-
-
-# GitHub repository URL
-github_repo_url="$repository_url"  # Replace this with your GitHub repository URL
 
 # Iterate through the commits and print information about closed and merged pull requests
 CUR_BULLET=1
